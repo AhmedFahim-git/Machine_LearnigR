@@ -1,0 +1,91 @@
+---
+title: "My Assignment"
+author: "Ahmed Fahim"
+date: "1/16/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+
+Six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
+
+The outcome variable is classe, and it has the above mentioned classes: A, B, C, D and E
+
+## Getting data
+```{r}
+library(caret)
+
+train_data <- read.csv('https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv', na.strings=c("NA","#DIV/0!", ""))
+train_data<- train_data[,colSums(is.na(train_data)) == 0]
+train_data <- train_data[,-c(1,2)]
+
+set.seed(1234)
+
+
+test_data <- read.csv('https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv', na.strings=c("NA","#DIV/0!", ""))
+test_data<- test_data[,colSums(is.na(test_data)) == 0]
+test_data <- test_data[,-c(1,2)]
+
+
+barplot(table(train_data$classe), xlab='Class', ylab='Frequency', main='Frequency of each class' )
+
+```
+
+## Baseline Classifier
+
+We use Naive Bayes as a baseline classifier. It is small, simple and easy to train. It is commonly used as baseline that more complex models must beat.
+
+We use 5-fold cross validation
+
+```{r }
+ctrl <- trainControl(method = "cv", number = 5)
+
+naive_model <- train(classe ~., data = train_data, method = "naive_bayes", trControl = ctrl)
+
+naive_model
+```
+
+```{r}
+preds <- predict(naive_model, train_data[,-58])
+
+confmat <- confusionMatrix(preds, factor(train_data[,58]))
+confmat
+```
+
+## Final Model
+
+We use Support Vector Machine using radial basis function as our final classifier. SVMs are generally good for multiclass classification, and the radial basis function helps it learn non-linear patterns in the data.
+
+```{r}
+svm_model <- train(classe ~., data = train_data, method = "svmRadial", trControl = ctrl, preProcess = c("center","scale"))
+
+svm_model
+```
+
+```{r}
+preds <- predict(svm_model, train_data[,-58])
+
+confmat <- confusionMatrix(preds, factor(train_data[,58]))
+confmat
+```
+
+As we can see, the SMV model does much better than our baseline classifier. So we take it as our final classifier.
+
+The out of sample error is typically the error in our cross-validation data, i.e. 1 minus the accuracy of our model on the validation data. In our final model the out of sample error is about (1-0.95) = 0.05.
+
+## Model predictions
+
+Finally, we predict the test cases using our final model
+
+```{r}
+predict(svm_model, test_data[,-58])
+```
+
+## Note
+
+In case anyone was wondering why I didn't use decision trees or forests for my project, it was mainly due to model performance and computational restraints. I tried using decision trees but it performed worse than my baseline classifier, so I didn't select it. Random Forests and Gradient Boosted Machines were too computationally intensive for my current machine.
